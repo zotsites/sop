@@ -1,6 +1,6 @@
 # extra added - arjun
 data.json
-all_links.json
+errored_data.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

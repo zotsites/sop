@@ -1,17 +1,65 @@
+import time
 import json
-import requests
-from bs4 import BeautifulSoup
-import html2text
+
 from urllib.parse import urlparse
+from requests.exceptions import Timeout, TooManyRedirects, RequestException, HTTPError
+from bs4 import BeautifulSoup
+import requests
+import html2text
+import lxml
+
+from links import get_links
+
+
+all_links = []
+error_links = []
+
+
+def access_page(url):
+    """
+    - accesses the pages using requests and beautiful soup.
+    - handles requests errors to the page and if the soup is None
+    """
+    while True:
+        try:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status()
+            soup = BeautifulSoup(r.content, "lxml")
+            main_soup = soup.find(id="main-content")
+            if main_soup is not None:
+                return soup, main_soup
+            else:
+                continue
+        except Timeout:
+            print("Request timed out. Retrying...")
+            continue
+        except TooManyRedirects as e_tmr:
+            error_links.append(url)
+            print("Too many redirects. Please check the URL and try again.")
+            raise TooManyRedirects(e_tmr) from e_tmr
+        except HTTPError as e_http:
+            if "599" in e_http:
+                time.sleep(5)
+        except RequestException as e:
+            error_links.append(url)
+            print(f"An error occurred: {e}")
+            raise RequestException(e) from e
 
 
 def page_to_json(url):
-    r = requests.get(url=url, timeout=10)
-    soup = BeautifulSoup(r.content, "html.parser")
-    for script in soup(["script", "style"]):
-        script.extract()
+    """
+    - gets correct soup, main_soup from access_page method
+    - converts main part of soup to markdown page
+    - extracts the metadata from the soup
+    - returns content and metadata
+    """
+    try:
+        soup, main_soup = access_page(url)
+    except Exception:
+        return
 
-    main_soup = soup.find(id="et-main-area")
+    for script in main_soup(["script", "style"]):
+        script.extract()
 
     html = str(main_soup)
     html2text_instance = html2text.HTML2Text()
@@ -47,14 +95,21 @@ def page_to_json(url):
     return {"content": text, "metadata": metadata}
 
 
+def main(links: list):
+    """
+    - loops through links and creates a request out of them
+    - creates data.json and errored_data.json for new data
+    """
+    for index, link in enumerate(links):
+        print(index, link)
+        link_dict = page_to_json(link)
+        all_links.append(link_dict)
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(all_links, f, indent=2)
+    with open("errored_data.json", "w", encoding="utf-8") as f:
+        json.dump(error_links, f, indent=2)
+
+
 if __name__ == "__main__":
-    with open("all_links.json", "r", encoding="utf-8") as f:
-        links = json.load(f)
-        all_info = []
-        try:
-            for link in links[7:]:
-                print(link)
-                all_info.append(page_to_json(link))
-        finally:
-            with open("data.json", "w", encoding="utf-8") as f:
-                json.dump(all_info, f, indent=2)
+    # for all links
+    links = get_links()  # from the function in other links.py file
