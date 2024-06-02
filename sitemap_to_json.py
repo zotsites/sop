@@ -1,3 +1,6 @@
+"""
+- gets the page information from a certain sitemap
+"""
 import time
 import json
 
