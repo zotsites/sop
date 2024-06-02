@@ -61,7 +61,7 @@ def text_to_docs(text, metadata):
     doc_chunks = []
     text_splitter = MarkdownTextSplitter(chunk_size=2048, chunk_overlap=128)
     chunks = text_splitter.split_text(text)
-    for i, chunk in enumerate(chunks):
+    for _, chunk in enumerate(chunks):
         doc = Document(page_content=chunk, metadata=metadata)
         doc_chunks.append(doc)
     return doc_chunks
