@@ -11,8 +11,7 @@ import requests
 import html2text
 import lxml  # pylint: disable=unused-import
 
-from links import get_links
-
+from data.links import get_links
 
 all_links = []
 error_links = []
