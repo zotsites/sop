@@ -6,7 +6,7 @@ from requests.exceptions import Timeout, TooManyRedirects, RequestException, HTT
 from bs4 import BeautifulSoup
 import requests
 import html2text
-import lxml
+import lxml  # pylint: disable=unused-import
 
 from links import get_links
 
@@ -35,11 +35,17 @@ def access_page(url):
             continue
         except TooManyRedirects as e_tmr:
             error_links.append(url)
-            print("Too many redirects. Please check the URL and try again.")
+            print("Too many redirects.")
             raise TooManyRedirects(e_tmr) from e_tmr
         except HTTPError as e_http:
-            if "599" in e_http:
-                time.sleep(5)
+            if "599" in str(e_http):
+                print("Internal Server Error, waiting 4 seconds and then retrying")
+                time.sleep(4)
+                continue
+            else:
+                error_links.append(url)
+                print(f"HTTP error: {e_http}")
+                raise HTTPError(e_http) from e_http
         except RequestException as e:
             error_links.append(url)
             print(f"An error occurred: {e}")
@@ -55,7 +61,7 @@ def page_to_json(url):
     """
     try:
         soup, main_soup = access_page(url)
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         return
 
     for script in main_soup(["script", "style"]):
@@ -95,21 +101,27 @@ def page_to_json(url):
     return {"content": text, "metadata": metadata}
 
 
-def main(links: list):
+def main(links_list: list):
     """
     - loops through links and creates a request out of them
     - creates data.json and errored_data.json for new data
     """
-    for index, link in enumerate(links):
+    for index, link in enumerate(links_list):
         print(index, link)
         link_dict = page_to_json(link)
         all_links.append(link_dict)
-    with open("data.json", "w", encoding="utf-8") as f:
+    with open("data_3.json", "w", encoding="utf-8") as f:  # remember to change name
         json.dump(all_links, f, indent=2)
-    with open("errored_data.json", "w", encoding="utf-8") as f:
+    with open("errored_data_3.json", "w", encoding="utf-8") as f:  # change this too
         json.dump(error_links, f, indent=2)
 
 
 if __name__ == "__main__":
     # for all links
-    links = get_links()  # from the function in other links.py file
+    links = get_links()
+    main(links)  # from the function in other links.py file
+
+    # retry on errored links
+    # with open("errored_data.json", "r", encoding="utf-8") as f:
+    #     links = json.load(f)
+    #     main(links)
